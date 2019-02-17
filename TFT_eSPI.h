@@ -125,8 +125,13 @@
 #endif
 
 #ifndef TFT_DC
-  #define DC_C // No macro allocated so it generates no code
-  #define DC_D // No macro allocated so it generates no code
+  #ifdef TFT_PORT_EXTENDER
+    #define DC_C EXT_DC_C()
+    #define DC_D EXT_DC_D()
+  #else
+    #define DC_C // No macro allocated so it generates no code
+    #define DC_D // No macro allocated so it generates no code
+  #endif
 #else
   #if defined (ESP8266) && (TFT_DC == 16)
     #define DC_C digitalWrite(TFT_DC, LOW)
@@ -182,8 +187,13 @@
 #endif
 
 #ifndef TFT_CS
-  #define CS_L // No macro allocated so it generates no code
-  #define CS_H // No macro allocated so it generates no code
+  #ifdef TFT_PORT_EXTENDER
+    #define CS_L EXT_CS_L()
+    #define CS_H EXT_CS_H()
+  #else
+    #define CS_L // No macro allocated so it generates no code
+    #define CS_H // No macro allocated so it generates no code
+  #endif
 #else
   #if defined (ESP8266) && (TFT_CS == 16)
     #define CS_L digitalWrite(TFT_CS, LOW)
@@ -663,6 +673,13 @@ class TFT_eSPI : public Print {
  public:
 
   TFT_eSPI(int16_t _W = TFT_WIDTH, int16_t _H = TFT_HEIGHT);
+  TFT_eSPI(int16_t w, int16_t h,
+                  void(*ext_dc_c)(void),
+                  void(*ext_dc_d)(void),
+                  void(*ext_cs_h)(void),
+                  void(*ext_cs_l)(void),
+                  void(*ext_rst_h)(void),
+                  void(*ext_rst_l)(void));
 
   void     init(uint8_t tc = TAB_COLOUR), begin(uint8_t tc = TAB_COLOUR); // Same - begin included for backwards compatibility
 
@@ -844,6 +861,16 @@ class TFT_eSPI : public Print {
   uint16_t decoderBuffer;      // Unicode code-point buffer
 
  private:
+
+ // function pointers to use port expanders
+  void (*EXT_DC_C)(void); // data
+  void (*EXT_DC_D)(void); // command
+
+  void (*EXT_CS_H)(void); // chip select high
+  void (*EXT_CS_L)(void); // chip select low
+
+  void (*EXT_RST_H)(void); // reset high
+  void (*EXT_RST_L)(void); // reset low
 
   inline void spi_begin() __attribute__((always_inline));
   inline void spi_end()   __attribute__((always_inline));

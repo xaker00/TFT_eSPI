@@ -137,6 +137,95 @@ inline void TFT_eSPI::spi_end_read(void){
 ** Function name:           TFT_eSPI
 ** Description:             Constructor , we must use hardware SPI pins
 ***************************************************************************************/
+TFT_eSPI::TFT_eSPI(int16_t w, int16_t h,
+                  void(*ext_dc_c)(void),
+                  void(*ext_dc_d)(void),
+                  void(*ext_cs_h)(void),
+                  void(*ext_cs_l)(void),
+                  void(*ext_rst_h)(void),
+                  void(*ext_rst_l)(void))
+{
+
+
+// function pointers to use port expanders
+  EXT_DC_C = ext_dc_c;
+  EXT_DC_D = ext_dc_d;
+
+  EXT_CS_H = ext_cs_h;
+  EXT_CS_L = ext_cs_l;
+
+  EXT_RST_H = ext_rst_h;
+  EXT_RST_L = ext_rst_l;
+
+  CS_H;
+  DC_D;
+
+  _init_width  = _width  = w; // Set by specific xxxxx_Defines.h file or by users sketch
+  _init_height = _height = h; // Set by specific xxxxx_Defines.h file or by users sketch
+  rotation  = 0;
+  cursor_y  = cursor_x  = 0;
+  textfont  = 1;
+  textsize  = 1;
+  textcolor   = bitmap_fg = 0xFFFF; // White
+  textbgcolor = bitmap_bg = 0x0000; // Black
+  padX = 0;             // No padding
+  isDigits   = false;   // No bounding box adjustment
+  textwrapX  = true;    // Wrap text at end of line when using print stream
+  textwrapY  = false;   // Wrap text at bottom of screen when using print stream
+  textdatum = TL_DATUM; // Top Left text alignment is default
+  fontsloaded = 0;
+
+  _swapBytes = false;   // Do not swap colour bytes by default
+
+  locked = true;        // ESP32 transaction mutex lock flags
+  inTransaction = false;
+
+  _booted = true;
+
+  addr_row = 0xFFFF;
+  addr_col = 0xFFFF;
+
+  _xpivot = 0;
+  _ypivot = 0;
+
+#ifdef LOAD_GLCD
+  fontsloaded  = 0x0002; // Bit 1 set
+#endif
+
+#ifdef LOAD_FONT2
+  fontsloaded |= 0x0004; // Bit 2 set
+#endif
+
+#ifdef LOAD_FONT4
+  fontsloaded |= 0x0010; // Bit 4 set
+#endif
+
+#ifdef LOAD_FONT6
+  fontsloaded |= 0x0040; // Bit 6 set
+#endif
+
+#ifdef LOAD_FONT7
+  fontsloaded |= 0x0080; // Bit 7 set
+#endif
+
+#ifdef LOAD_FONT8
+  fontsloaded |= 0x0100; // Bit 8 set
+#endif
+
+#ifdef LOAD_FONT8N
+  fontsloaded |= 0x0200; // Bit 9 set
+#endif
+
+#ifdef SMOOTH_FONT
+  fontsloaded |= 0x8000; // Bit 15 set
+#endif
+
+}
+
+/***************************************************************************************
+** Function name:           TFT_eSPI
+** Description:             Constructor , we must use hardware SPI pins
+***************************************************************************************/
 TFT_eSPI::TFT_eSPI(int16_t w, int16_t h)
 {
 
@@ -334,14 +423,22 @@ void TFT_eSPI::init(uint8_t tc)
     digitalWrite(TFT_CS, HIGH); // Chip select high (inactive)
     pinMode(TFT_CS, OUTPUT);
   #else
-    spi.setHwCs(1); // Use hardware SS toggling
+    #ifdef TFT_PORT_EXTENDER
+      CS_H;
+    #else
+      spi.setHwCs(1); // Use hardware SS toggling
+    #endif
   #endif
 #endif
 
   // Set to output once again in case D6 (MISO) is used for DC
 #ifdef TFT_DC
-    digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
-    pinMode(TFT_DC, OUTPUT);
+  digitalWrite(TFT_DC, HIGH); // Data/Command high = data mode
+  pinMode(TFT_DC, OUTPUT);
+    #else
+      #ifdef TFT_PORT_EXTENDER
+        DC_D;     
+      #endif
 #endif
 
     _booted = false;
@@ -361,7 +458,15 @@ void TFT_eSPI::init(uint8_t tc)
   }
   else writecommand(TFT_SWRST); // Software reset
 #else
-  writecommand(TFT_SWRST); // Software reset
+  #ifdef TFT_PORT_EXTENDER
+    EXT_RST_H();
+    delay(5);
+    EXT_RST_L();
+    delay(20);
+    EXT_RST_H();
+  #else
+    writecommand(TFT_SWRST); // Software reset
+  #endif
 #endif
 
   spi_end();
